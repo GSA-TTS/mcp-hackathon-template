@@ -1,0 +1,24 @@
+---
+# cloud.gov (Cloud Foundry) deployment manifest.
+#
+# cloud.gov injects PORT=8080 at runtime; app.py picks that up and serves HTTP.
+# Deploy with the Python buildpack (no Docker needed):
+#
+#   cf login -a api.fr.cloud.gov --sso
+#   cf target -o <your-org> -s <your-space>
+#   cf push
+#
+# Rename the app and route to something unique to you before pushing.
+applications:
+  - name: example-mcp-server
+    buildpacks:
+      - python_buildpack
+    command: PYTHONPATH=src python -m example_server.app
+    health-check-type: http
+    health-check-http-endpoint: /health
+    env:
+      PYTHONUNBUFFERED: 1
+    routes:
+      - route: example-mcp-server.app.cloud.gov
+    disk_quota: 1G
+    memory: 256M

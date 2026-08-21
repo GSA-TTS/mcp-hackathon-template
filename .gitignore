@@ -1,0 +1,36 @@
+# Virtual environments
+.venv/
+venv/
+
+# Environment variables (keep .env.example, never commit .env)
+.env
+deploy/**/.env
+deploy/**/eval.env
+
+# Deploy kit generated artifacts
+deploy/ibm/local-mcp-toolkit/_stage/
+deploy/ibm/local-mcp-toolkit/_toolkit.generated.yaml
+deploy/**/eval-results/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Ruff
+.ruff_cache/
+
+# IDE / editor
+.vscode/
+.idea/
+.zed/
+*.swp

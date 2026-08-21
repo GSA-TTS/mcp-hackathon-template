@@ -1,0 +1,27 @@
+# watsonx Orchestrate LOCAL MCP toolkit import config.
+#
+# DO NOT import this file directly. Use the register script:
+#   bash deploy/ibm/local-mcp-toolkit/register-toolkit.sh
+#
+# The register script builds a minimal, self-contained staging directory with a
+# FLATTENED layout — `example_server/` and `server.py` sit directly at
+# package_root (no src/ prefix), plus a pinned requirements.txt — then rewrites
+# `package_root` to point at it before calling `orchestrate toolkits import`.
+# This keeps the upload tiny, avoids a 413 "Request Entity Too Large" from
+# uploading the whole repo, and makes `example_server` importable at runtime.
+#
+# Orchestrate uploads package_root, installs requirements.txt, and runs `command`
+# over stdio. `python server.py` imports `example_server.app:mcp` and runs it.
+#
+# This template's server needs NO credentials, so no `connections` are declared.
+# If your server needs secrets, add a connection (see README) and list it here.
+spec_version: v1
+kind: mcp
+name: example_mcp_local
+description: "Example MCP server (local stdio). Replace name/description with your own server."
+command: python server.py
+env: []
+tools:
+  - "*"
+# Placeholder — the register script overwrites this with the staging dir path.
+package_root: ./_stage

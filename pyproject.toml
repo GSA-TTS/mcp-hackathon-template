@@ -1,0 +1,48 @@
+[project]
+name = "example-server"
+version = "0.1.0"
+description = "Starter MCP server for the GSA MCP hackathon"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.0.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+]
+
+[project.scripts]
+# Lets you run the server with `uv run example-server`.
+example-server = "example_server.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/example_server"]
+
+[dependency-groups]
+# Dev + eval-only deps. Install with `uv sync --group dev`.
+# The Phoenix evaluation harness (see eval/) is not scaffolded in this template
+# on purpose — add these when you build it per the mcp-eval skill.
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.6.0",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+exclude = [".venv", ".agents"]
+# Don't reformat Python code fences inside Markdown docs (they're illustrative
+# snippets, not runnable modules).
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
