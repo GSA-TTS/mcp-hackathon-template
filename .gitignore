@@ -12,6 +12,11 @@ deploy/ibm/local-mcp-toolkit/_stage/
 deploy/ibm/local-mcp-toolkit/_toolkit.generated.yaml
 deploy/**/eval-results/
 
+
+# IBM Bob IDE directory (skills and MCP tool definition)
+.bob/
+
+
 # Python
 __pycache__/
 *.pyc
@@ -34,3 +39,4 @@ htmlcov/
 .idea/
 .zed/
 *.swp
+
