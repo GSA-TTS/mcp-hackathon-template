@@ -109,7 +109,7 @@ ibmcloud cr images --restrict "${ICR_NAMESPACE}"
 
 Registration is **identical regardless of how the server was deployed** — the
 Orchestrate side only sees the public `/mcp` URL. Follow **Part 3** of the
-sibling runbook [`../prebuilt-image/README.md`](../prebuilt-image/README.md),
+sibling runbook [`../prebuilt-image/README.md`](../prebuilt-image/README.md#part-3--register-in-watsonx-orchestrate-saas),
 using the Code Engine URL this kit printed.
 
 ---
@@ -139,8 +139,6 @@ ibmcloud cr region-set "${ICR_REGION}"
 
 ## Known gaps / notes
 
-- **Public-repo only:** private repos need a Code Engine Git secret +
-  `--build-git-repo-secret` (out of scope here).
 - **API key handling:** read from `IBMCLOUD_API_KEY` or prompted (hidden), never
   written to disk. Rotate/delete when done.
 - **Region pairing:** the ICR region is independent of the Code Engine region;

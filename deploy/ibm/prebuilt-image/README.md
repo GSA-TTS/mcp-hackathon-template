@@ -46,7 +46,19 @@ Set `IMAGE` in your `.env` to any publicly pullable reference:
 
 ## Part 1 — Prerequisites
 
-### 1.1 Install the IBM Cloud CLI + Code Engine plugin
+### 1.1 Configure the deploy env file
+
+```bash
+cp deploy/ibm/prebuilt-image/.env.example deploy/ibm/prebuilt-image/.env
+# edit it:
+#   - IBMCLOUD_REGION / IBMCLOUD_RESOURCE_GROUP: match the commands above
+#   - CE_APP_NAME: your server's name
+#   - Path A (default): set ICR_NAMESPACE and ICR_IMAGE_NAME; leave IMAGE empty
+#   - Path B: set IMAGE to a public image ref; ICR vars are ignored
+set -a; source deploy/ibm/prebuilt-image/.env; set +a
+```
+
+### 1.2 Install the IBM Cloud CLI + plugins
 
 ```bash
 # macOS/Linux
@@ -54,13 +66,14 @@ curl -fsSL https://clis.cloud.ibm.com/install/osx | sh   # macOS
 # or: curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
 
 ibmcloud plugin install code-engine
+ibmcloud plugin install container-registry
 ibmcloud --version
 ```
 
 > Alternatively use the browser-based [IBM Cloud Shell](https://cloud.ibm.com/shell),
-> which has `ibmcloud` and the `ce` plugin preinstalled.
+> which has `ibmcloud` and both plugins preinstalled.
 
-### 1.2 Log in
+### 1.3 Log in
 
 ```bash
 ibmcloud login --sso          # federated / SSO accounts
@@ -73,14 +86,24 @@ ibmcloud regions              # pick one near you
 > **Code Engine needs a paid (or trial-upgraded) account** — the free "Lite"
 > account cannot create Code Engine projects.
 
-### 1.3 Configure the deploy env file
+### 1.4 Build your image locally
+
+```bash
+# from the repo root
+docker build -t <ICR_IMAGE_NAME> .
+```
+
+`ICR_IMAGE_NAME` should match what you set in `.env` (defaults to `CE_APP_NAME`).
+
+### 1.4 Configure the deploy env file
 
 ```bash
 cp deploy/ibm/prebuilt-image/.env.example deploy/ibm/prebuilt-image/.env
 # edit it:
 #   - IBMCLOUD_REGION / IBMCLOUD_RESOURCE_GROUP: match the commands above
 #   - CE_APP_NAME: your server's name
-#   - IMAGE: full public image reference, e.g. ghcr.io/<you>/<repo>:0.1.0
+#   - Path A (default): set GIT_REPO_URL to your PUBLIC fork, leave IMAGE empty
+#   - Path B: set IMAGE to a public image ref; Git vars are ignored
 set -a; source deploy/ibm/prebuilt-image/.env; set +a
 ```
 
@@ -133,8 +156,8 @@ Copy the **service instance URL** and an **API key** from the Orchestrate SaaS U
 (Settings → API details), then:
 
 ```bash
-orchestrate env add --name ibm-saas --url "<YOUR_ORCHESTRATE_INSTANCE_URL>"
-orchestrate env activate ibm-saas --api-key "<YOUR_ORCHESTRATE_API_KEY>"
+orchestrate env add --name gsa-hackathon --url "<YOUR_ORCHESTRATE_INSTANCE_URL>"
+orchestrate env activate gsa-hackathon --api-key "<YOUR_ORCHESTRATE_API_KEY>"
 orchestrate env list
 ```
 
@@ -185,8 +208,12 @@ orchestrate toolkits remove --name my_server
 
 ## Known gaps / notes
 
-- **Public image only:** the script has no image-pull secret. The image must be
-  publicly accessible (GHCR package visibility set to Public, or a public Docker
-  Hub repo).
+- **Public-repo / public-image only:** the hackathon scope is public data, so
+  the script does not wire up a Git or image-pull secret. Private sources need
+  additional Code Engine secrets (see the [`code-engine-git-build guide`](../code-engine-git-build/README.md#ibm-code-engine--build-from-git-deployment) for this method).
+- **Account authority:** server-side Git build (Path A) pushes to IBM Container
+  Registry and needs ICR authority. If `ce app create` fails on a registry
+  permission error, set `IMAGE` (Path B) or use the `../code-engine-git-build/`
+  kit which provisions the registry secret explicitly.
 - **No auth on the endpoint:** the MCP endpoint is public with no auth (matches
   the pilot posture). For anything beyond a hackathon, front it with auth.

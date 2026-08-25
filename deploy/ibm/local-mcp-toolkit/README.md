@@ -63,7 +63,22 @@ Your Orchestrate instance URL + API key are on the wxO service page in IBM Cloud
 
 ## Part 2 — Register the toolkit
 
-### 2.1 Configure the env file
+### 2.1 Point the ADK at your instance
+This step sets up an ADK "environment" what will be referenced later.
+
+Copy the **service instance URL** and an **API key** from the Orchestrate SaaS UI
+(Settings → API details), then:
+
+```bash
+orchestrate env add --name gsa-hackathon --url "<YOUR_ORCHESTRATE_INSTANCE_URL>"
+# "gsa-hackathon" is the environment name
+orchestrate env activate gsa-hackathon --api-key "<YOUR_ORCHESTRATE_API_KEY>"
+orchestrate env list
+```
+
+### 2.2 Configure the env file
+
+Make sure the `WXO_ENV_NAME` in your `.env` file matches the environment name created above.
 
 ```bash
 cp deploy/ibm/local-mcp-toolkit/.env.example deploy/ibm/local-mcp-toolkit/.env
@@ -71,7 +86,7 @@ cp deploy/ibm/local-mcp-toolkit/.env.example deploy/ibm/local-mcp-toolkit/.env
 set -a; source deploy/ibm/local-mcp-toolkit/.env; set +a
 ```
 
-### 2.2 Provide your API key and run the register script
+### 2.3 Provide your API key and run the register script
 
 ```bash
 export WXO_API_KEY="<your Orchestrate API key>"   # else prompted (hidden)
@@ -85,7 +100,7 @@ imports the toolkit, lists toolkits to confirm, and cleans up. It is idempotent
 > **If you renamed the package** from `example_server`, run with
 > `PACKAGE_NAME=<your_pkg>` exported (and update `server.py`'s import).
 
-### 2.2a Corporate TLS interception (Zscaler / GSA network) — may be required
+### 2.3a Corporate TLS interception (Zscaler / GSA network) — may be required
 
 On a GSA-managed network the ADK's IAM login may fail with
 `SSLCertVerificationError: unable to get local issuer certificate`. This is a
@@ -113,7 +128,7 @@ export SSL_CERT_FILE=/tmp/wxo-ca-bundle.pem
 export REQUESTS_CA_BUNDLE=/tmp/wxo-ca-bundle.pem
 ```
 
-### 2.3 (Optional) Verify the entrypoint locally first
+### 2.4 (Optional) Verify the entrypoint locally first
 
 ```bash
 # From the repo root, with the repo installed (uv sync or pip install -e .):
