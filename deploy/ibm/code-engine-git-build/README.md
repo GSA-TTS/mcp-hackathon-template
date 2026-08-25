@@ -16,8 +16,8 @@ public Git repo**: Code Engine clones the repo, builds its `Dockerfile`
 
 | | This kit | `../prebuilt-image/` |
 |---|---|---|
-| Source | Code Engine builds your **Git repo** | You supply a **prebuilt image** ref |
-| Local Docker | **Not needed** | Needed to build/push the image |
+| Source | Code Engine builds your **Git repo** | You supply a **prebuilt public image** ref |
+| Local Docker | **Not needed** | Not needed (image already built) |
 | Image registry | Pushes to **your ICR namespace** | Any public registry (e.g. GHCR) |
 | Extra IBM authority | **ICR namespace + API key** | None |
 

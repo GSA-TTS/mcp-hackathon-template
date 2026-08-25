@@ -1,24 +1,44 @@
 # IBM Cloud Deployment (Prebuilt Image) + watsonx Orchestrate
 
-Deploy your MCP server to **IBM Cloud Code Engine** and register it as a tool in
-**watsonx Orchestrate**. This kit is the **lowest-authority** Code Engine path:
-it deploys a **prebuilt public container image** (Path B), or builds from a
-public Git repo (Path A) if your account has IBM Container Registry authority.
+Deploy your MCP server to **IBM Cloud Code Engine** using a **prebuilt public
+container image** (e.g., from [GitHub Container Registry / GHCR](https://ghcr.io)
+or Docker Hub), then register it as a tool in **watsonx Orchestrate**.
 
-> **Which kit is this?** The **prebuilt-image** kit. It's the fallback that works
-> even in restricted trial accounts that lack Container Registry authority. If
-> your account **does** have that authority and you want the "point Code Engine
-> at your repo and go" experience with an explicit registry setup, use the
-> sibling [`../code-engine-git-build/`](../code-engine-git-build/README.md) kit.
-> If you don't want any cloud infrastructure at all, use
+This is the **lowest-authority** Code Engine path: no IBM Container Registry
+access is needed. Code Engine simply pulls the image you supply.
+
+> **Which kit is this?** The **prebuilt-image** kit. Use it when you already have
+> a public image to deploy. If you want Code Engine to build from your Git repo
+> and push to ICR, use the sibling
+> [`../code-engine-git-build/`](../code-engine-git-build/README.md) kit instead.
+> For no cloud infrastructure at all, use
 > [`../local-mcp-toolkit/`](../local-mcp-toolkit/README.md).
 
-> **Hackathon workflow this fits:** build locally → deploy to the cloud → register
-> in watsonx Orchestrate → build an agent that uses your tools.
+> **Hackathon workflow this fits:** build locally → publish image to GHCR →
+> deploy to Code Engine → register in watsonx Orchestrate → build an agent that
+> uses your tools.
+
+## Getting a public image
+
+You need a public image reference (e.g. `ghcr.io/<user>/<repo>:tag`) before
+running the deploy script.
+
+**Option A — Publish your GitHub repo to GHCR (recommended)**
+
+GitHub Actions can build and push your image to GHCR automatically on every
+push. See the official guide:
+[Working with the Container registry (GitHub Docs)](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+
+Once published, make the package **public** in your GitHub account's Packages
+settings so Code Engine can pull it without credentials.
+
+**Option B — Use any existing public image**
+
+Set `IMAGE` in your `.env` to any publicly pullable reference:
+`docker.io/<user>/<repo>:tag`, `ghcr.io/…`, etc.
 
 ## What gets deployed
 
-- **Repo/image:** your MCP server (built from this template)
 - **Transport:** MCP over streamable-HTTP at `/mcp`; health check at `/health`
 - **Port:** `8080` (set by the template `Dockerfile`)
 
@@ -60,8 +80,7 @@ cp deploy/ibm/prebuilt-image/.env.example deploy/ibm/prebuilt-image/.env
 # edit it:
 #   - IBMCLOUD_REGION / IBMCLOUD_RESOURCE_GROUP: match the commands above
 #   - CE_APP_NAME: your server's name
-#   - Path A (default): set GIT_REPO_URL to your PUBLIC fork, leave IMAGE empty
-#   - Path B: set IMAGE to a public image ref; Git vars are ignored
+#   - IMAGE: full public image reference, e.g. ghcr.io/<you>/<repo>:0.1.0
 set -a; source deploy/ibm/prebuilt-image/.env; set +a
 ```
 
@@ -76,12 +95,11 @@ set -a; source deploy/ibm/prebuilt-image/.env; set +a
 bash deploy/ibm/prebuilt-image/deploy-code-engine.sh
 ```
 
-The script is idempotent and picks the path from `.env`:
+The script is idempotent and:
 
 1. Verifies you're logged in; targets your region + resource group.
 2. Creates (or selects) the Code Engine project `CE_PROJECT`.
-3. **Path A:** hands Code Engine your `GIT_REPO_URL` + branch; it builds the
-   `Dockerfile` server-side and deploys. **Path B:** deploys `IMAGE` directly.
+3. Deploys `IMAGE` directly — Code Engine pulls the image and starts the app.
 4. Prints the public app URL.
 
 It sets `--min-scale 1` so one instance stays warm — avoiding a cold-start
@@ -161,18 +179,14 @@ orchestrate toolkits remove --name my_server
 | File | Purpose |
 |---|---|
 | `.env.example` | Deployment coordinates template (copy to `.env`, no secrets) |
-| `deploy-code-engine.sh` | Idempotent deploy — Git build (A) or prebuilt image (B) |
+| `deploy-code-engine.sh` | Idempotent deploy — pulls and deploys a prebuilt public image |
 | `smoke-test.sh` | Live `/health` + `/mcp` verification |
 | `README.md` | This runbook |
 
 ## Known gaps / notes
 
-- **Public-repo / public-image only:** the hackathon scope is public data, so
-  the script does not wire up a Git or image-pull secret. Private sources need
-  additional Code Engine secrets (out of scope here).
-- **Account authority:** server-side Git build (Path A) pushes to IBM Container
-  Registry and needs ICR authority. If `ce app create` fails on a registry
-  permission error, set `IMAGE` (Path B) or use the `../code-engine-git-build/`
-  kit which provisions the registry secret explicitly.
+- **Public image only:** the script has no image-pull secret. The image must be
+  publicly accessible (GHCR package visibility set to Public, or a public Docker
+  Hub repo).
 - **No auth on the endpoint:** the MCP endpoint is public with no auth (matches
   the pilot posture). For anything beyond a hackathon, front it with auth.

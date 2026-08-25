@@ -7,7 +7,7 @@ ordered from lowest to highest infrastructure overhead. Pick one.
 |---|---|---|---|
 | **[`local-mcp-toolkit/`](local-mcp-toolkit/)** | **stdio, inside Orchestrate** | **None** (ADK + repo) | Novices; fastest path; no cloud account plumbing |
 | **[`code-engine-git-build/`](code-engine-git-build/)** | streamable-HTTP on IBM Code Engine (built from your Git repo) | Code Engine + IBM Container Registry | The "point Code Engine at your repo and go" flow |
-| **[`prebuilt-image/`](prebuilt-image/)** | streamable-HTTP on IBM Code Engine (prebuilt image, or Git build) | Code Engine (+ a public image for Path B) | Lowest cloud authority; a pinned, reproducible release |
+| **[`prebuilt-image/`](prebuilt-image/)** | streamable-HTTP on IBM Code Engine (prebuilt public image) | Code Engine + a public image (e.g. GHCR) | Lowest cloud authority; no ICR access needed |
 
 ## Which should I use?
 
@@ -18,8 +18,8 @@ ordered from lowest to highest infrastructure overhead. Pick one.
   authority?** → `code-engine-git-build/`. Code Engine builds from your public
   repo and pushes to your ICR namespace.
 - **Your account lacks registry authority, or you already have a public image?**
-  → `prebuilt-image/`. Deploys a public image directly (or builds from Git if you
-  do have the authority).
+  → `prebuilt-image/`. Deploys a prebuilt public image directly (e.g. from GHCR).
+  No ICR access required.
 
 All three end the same way: **register the server in Orchestrate → build an agent
 that uses its tools**. The two Code Engine kits produce a public `/mcp` URL you
