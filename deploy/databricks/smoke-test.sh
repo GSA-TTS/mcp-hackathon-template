@@ -28,8 +28,8 @@ fi
 echo ""
 
 echo "=== 1. Health check: ${BASE_URL}/health ==="
-HEALTH_CODE="$(curl -s -o /tmp/dbx-health.json -w '%{http_code}' "${AUTH_ARGS[@]}" "${BASE_URL}/health" || true)"
-cat /tmp/dbx-health.json 2>/dev/null; echo ""
+HEALTH_CODE="$(curl -s -o /tmp/dbx-health.json -w '%{http_code}' ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} "${BASE_URL}/health" || true)"
+cat /tmp/dbx-health.json 2>/dev/null || true; echo ""
 case "${HEALTH_CODE}" in
   200)
     echo "PASS: health check 200"
@@ -46,12 +46,12 @@ esac
 echo ""
 
 echo "=== 2. MCP endpoint: ${BASE_URL}/mcp ==="
-MCP_CODE="$(curl -s -o /tmp/dbx-mcp.txt -w '%{http_code}' "${AUTH_ARGS[@]}" \
+MCP_CODE="$(curl -s -o /tmp/dbx-mcp.txt -w '%{http_code}' ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
   "${BASE_URL}/mcp" || true)"
-head -c 2000 /tmp/dbx-mcp.txt 2>/dev/null; echo ""
+head -c 2000 /tmp/dbx-mcp.txt 2>/dev/null || true; echo ""
 echo "HTTP ${MCP_CODE}"
 echo ""
 echo "Notes:"

@@ -44,6 +44,12 @@ databricks auth login --host https://<your-workspace>.cloud.databricks.com
 databricks current-user me      # confirm you're logged in
 ```
 
+> **Profile name gotcha:** `databricks auth login` prompts for a profile name and
+> defaults it to your workspace host (e.g. `dbc-xxxx`) — **not** `DEFAULT`. Note
+> the name you choose; you must set `DATABRICKS_CONFIG_PROFILE` in `.env` (below)
+> to that exact name, or the deploy script's auth check will fail with
+> "not authenticated". List your profiles with `databricks auth profiles`.
+
 > Databricks **Apps** must be enabled on your workspace. If `apps` commands fail
 > with a feature error, ask your workspace admin to enable Databricks Apps.
 
@@ -89,6 +95,11 @@ bash deploy/databricks/smoke-test.sh https://<app-url>
 # Authenticated check:
 DATABRICKS_TOKEN="$(databricks auth token --output json | jq -r .access_token)" \
   bash deploy/databricks/smoke-test.sh https://<app-url>
+
+# If you saved a named profile (not DEFAULT), pass it and the host explicitly:
+#   DATABRICKS_TOKEN="$(databricks --profile <your-profile> auth token \
+#     --host https://<your-workspace>.cloud.databricks.com --output json | jq -r .access_token)" \
+#     bash deploy/databricks/smoke-test.sh https://<app-url>
 ```
 
 ---
