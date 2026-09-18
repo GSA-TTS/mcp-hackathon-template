@@ -35,17 +35,20 @@
 import os
 
 # --- CONFIG: the things you edit --------------------------------------------
-# 1) Your deployed MCP server's /mcp URL.
-MCP_SERVER_URL = "https://mcp-server-cdc-places-7474654188777746.aws.databricksapps.com/mcp"
+# 1) Your deployed MCP server's /mcp URL (from the deploy kit output).
+MCP_SERVER_URL = "https://<your-app>.aws.databricksapps.com/mcp"
 
-# 2) A Databricks foundation-model serving endpoint you can query.
+# 2) A Databricks foundation-model serving endpoint you can query. List options:
+#    [e.name for e in WorkspaceClient().serving_endpoints.list()]
 MODEL = "databricks-claude-haiku-4-5"
 
-# 3) The workspace host that fronts your MCP app + the experiment to log to.
-DATABRICKS_HOST = "https://dbc-aae0ba16-8727.cloud.databricks.com/"
-EXPERIMENT_ID = "3216071340257343"
+# 3) The workspace host that fronts your MCP app + an experiment YOU can write
+#    to (get its id from the experiment's URL or the Experiments UI).
+DATABRICKS_HOST = "https://<your-workspace>.cloud.databricks.com/"
+EXPERIMENT_ID = "<your-experiment-id>"
 
-# 4) The Databricks secret scope + keys holding the service-principal creds.
+# 4) The Databricks secret scope + keys holding the service-principal creds
+#    (created by setup-eval-sp.sh; defaults match that script's output).
 SECRET_SCOPE = "mcp-eval-secrets"
 SECRET_KEY_CLIENT_ID = "sp_id"
 SECRET_KEY_CLIENT_SECRET = "sp_secret"
@@ -118,19 +121,19 @@ mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=EXPERIMENT
 # os.environ["MLFLOW_HTTP_REQUEST_TIMEOUT"] = "60"
 
 # --- Evaluation dataset -------------------------------------------------------
-# `inputs` keys must match predict()'s parameter names. Expectations for judges
-# like Correctness MUST live under an `expectations` dict; `expected_facts` must
-# be a LIST. Add more rows to broaden coverage.
+# REPLACE this with questions relevant to YOUR MCP server's tools. The row below
+# is an example (it targets a CDC PLACES tool) to show the shape.
+#
+# `inputs` keys must match predict()'s parameter names (here: `request`).
+# Expectations for judges like Correctness MUST live under an `expectations`
+# dict; `expected_facts` must be a LIST. Add more rows to broaden coverage.
 eval_dataset = [
     {
         "inputs": {
-            "request": (
-                "What percent of adults had short sleep durations in "
-                "Kauai County Hawaii in 2018?"
-            )
+            "request": "<a question your agent should answer using its tools>"
         },
         "expectations": {
-            "expected_facts": ["36.9"],
+            "expected_facts": ["<a fact the correct answer must contain>"],
         },
     },
 ]
