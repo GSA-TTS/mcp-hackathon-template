@@ -67,7 +67,7 @@ def register(mcp: FastMCP) -> None:
         #
         # try:
         #     payload = await fetch_json(
-        #         "https://api.example.gov/v1/datasets",
+        #         "datasets",
         #         params={"q": query, "rows": pagination.limit,
         #                 "start": pagination.offset},
         #         headers={"X-API-Key": settings.example_api_key},

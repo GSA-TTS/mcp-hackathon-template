@@ -31,7 +31,15 @@ Clear, descriptive tool names help agents find the right tools quickly. Use cons
 Agents benefit from concise tool descriptions and the ability to filter/paginate results. Design tools that return focused, relevant data. Some clients support code execution which can help agents filter and process data efficiently.
 
 **Actionable Error Messages:**
-Error messages should guide agents toward solutions with specific suggestions and next steps.
+Error messages should guide agents toward solutions without returning raw upstream
+bodies, headers, request URLs, stack traces, or exception strings. Treat upstream
+errors as potentially containing secrets or PII.
+
+**Security Boundary:**
+Treat every tool argument, resource URI, prompt, retrieved document, upstream
+response, and agent-to-agent message as untrusted. An MCP client, orchestrator, or
+agent being on an internal network does not make its inputs trustworthy. Tool
+annotations are descriptive hints, not authorization controls.
 
 #### 1.2 Study MCP Protocol Documentation
 
@@ -68,6 +76,15 @@ Key pages to review:
 
 **Understand the API:**
 Review the service's API documentation to identify key endpoints, authentication requirements, and data models. Use web search and WebFetch as needed.
+
+**Complete a security inventory before writing tools:**
+- List every outbound destination, protocol, port, redirect requirement, and credential.
+- Classify data received, returned, and logged, including PII and sensitive fields.
+- Identify every parameter that can affect a URL, hostname, path, file, query, or command.
+- Prefer fixed operator-configured API origins and typed identifiers over caller-supplied URLs.
+- Define authentication and per-tool authorization for remote servers. Public data does not imply that an unauthenticated tool is safe to invoke.
+- Define least-privilege credentials per server or agent instead of a shared credential pool.
+- Document network egress controls. Application validation is required but is not a replacement for an egress proxy or firewall allowlist.
 
 **Tool Selection:**
 Prioritize comprehensive API coverage. List endpoints to implement, starting with the most common operations.
@@ -153,10 +170,17 @@ def register_tools(mcp):
 #### 2.2 Implement Core Infrastructure
 
 Create shared utilities:
-- API client with authentication
-- Error handling helpers
+- API client with authentication, fixed approved origins, explicit timeouts, response-size limits, environment proxies disabled unless approved, and redirects disabled by default
+- Error handling helpers that expose stable error categories and status codes only
+- Structured logging with allowlisted fields and redaction before values reach a logger
 - Response formatting (JSON/Markdown)
 - Pagination support
+
+If a tool must accept a URL, implement the full outbound-request policy in
+`references/mcp_best_practices.md`. Do not use a DNS preflight followed by a normal
+hostname request: that creates a time-of-check/time-of-use gap. Pin the connection
+to a validated address with correct TLS hostname verification, or route through an
+approved egress proxy that enforces destination policy.
 
 #### 2.3 Implement Tools
 
@@ -166,6 +190,7 @@ For each tool:
 - Use Zod (TypeScript) or Pydantic (Python)
 - Include constraints and clear descriptions
 - Add examples in field descriptions
+- Use allowlists for schemes, exact hostnames, ports, and identifiers; regex or URL syntax validation alone does not prevent SSRF
 
 **Output Schema:**
 - Define `outputSchema` where possible for structured data
@@ -182,6 +207,8 @@ For each tool:
 - Proper error handling with actionable messages
 - Support pagination where applicable
 - Return both text content and structured data when using modern SDKs
+- Treat externally retrieved content as data, never as trusted instructions
+- Enforce authorization in server code for each tool; do not rely on annotations or an upstream agent's identity claim
 
 **Annotations:**
 - `readOnlyHint`: true/false
@@ -200,6 +227,9 @@ Review for:
 - Consistent error handling
 - Full type coverage
 - Clear tool descriptions
+- No unrestricted caller-controlled URLs, redirects, proxy inheritance, or credential forwarding
+- No sensitive values in client errors or logs
+- Complete registration at every dispatch point and least-privilege access for each tool
 
 #### 3.2 Build and Test
 
@@ -212,6 +242,36 @@ Review for:
 - Test with MCP Inspector
 
 See language-specific guides for detailed testing approaches and quality checklists.
+
+#### 3.3 Mandatory Security Tests
+
+For every server that performs network requests, add deterministic unit tests and
+an isolated integration test where the environment permits. Verify that:
+
+- Loopback, private, link-local, multicast, unspecified, reserved, IPv4-mapped IPv6, and cloud metadata destinations are rejected.
+- Alternate IP representations, prohibited schemes, userinfo, unexpected ports, malformed URLs, and allowlist suffix-confusion names are rejected.
+- A public hostname resolving to a prohibited address is rejected at connection time.
+- Redirects are disabled, or every hop is bounded and fully revalidated; redirects cannot forward credentials across origins.
+- A DNS answer changing between validation and connection fails closed. Mock both the resolver and transport for a deterministic regression test.
+- Seeded SSNs, dates of birth, addresses, tokens, cookies, query strings, authorization headers, response bodies, and stack traces appear in neither returned errors nor captured logs.
+- Authentication and authorization are tested per tool, including denial paths.
+
+Do not probe real metadata endpoints or internal systems. Use local fakes and mocked
+resolvers/transports for adversarial tests.
+
+#### 3.4 Security Completion Gate
+
+Do not declare the server complete until all items are true:
+
+- [ ] No tool accepts an absolute URL unless its documented purpose requires one.
+- [ ] Every outbound destination is inventoried and constrained to exact approved origins.
+- [ ] Every redirect is disabled or revalidated at every hop.
+- [ ] DNS rebinding and cloud metadata regression tests pass.
+- [ ] Credentials are scoped and cannot cross origins or agent boundaries.
+- [ ] External content and inter-agent messages are handled as untrusted data.
+- [ ] Client errors and logs are verified free of sensitive data.
+- [ ] Remote transport authentication and per-tool authorization are explicit.
+- [ ] Network-level egress controls and residual risks are documented.
 
 ---
 
@@ -286,7 +346,7 @@ Load these resources as needed during development:
   - Response format guidelines (JSON vs Markdown)
   - Pagination best practices
   - Transport selection (streamable HTTP vs stdio)
-  - Security and error handling standards
+  - SSRF, DNS rebinding, redirect, authentication, logging, and error handling standards
 
 ### SDK Documentation (Load During Phase 1/2)
 - **Python SDK**: Fetch from `https://raw.githubusercontent.com/modelcontextprotocol/python-sdk/main/README.md`

@@ -379,22 +379,35 @@ def _handle_api_error(e: Exception) -> str:
         return f"Error: API request failed with status {e.response.status_code}"
     elif isinstance(e, httpx.TimeoutException):
         return "Error: Request timed out. Please try again."
-    return f"Error: Unexpected error occurred: {type(e).__name__}"
+    return "Error: Unexpected upstream service failure."
 ```
 
 ## Shared Utilities
 
 Extract common functionality into reusable functions:
 
+Outbound API helpers must not accept arbitrary absolute URLs. Configure an exact
+approved origin, accept only relative paths or typed identifiers, disable redirects
+and environment proxies, and sanitize errors. If the product genuinely requires
+caller-supplied URLs, use the complete connection-time destination validation and
+redirect policy in `mcp_best_practices.md`; a DNS preflight followed by a hostname
+request is not safe against DNS rebinding.
+
 ```python
 # Shared API request function
 async def _make_api_request(endpoint: str, method: str = "GET", **kwargs) -> dict:
     '''Reusable function for all API calls.'''
-    async with httpx.AsyncClient() as client:
+    if endpoint.startswith(("http://", "https://", "//")):
+        raise ValueError("endpoint must be a relative API path")
+    async with httpx.AsyncClient(
+        base_url=API_BASE_URL,
+        follow_redirects=False,
+        timeout=httpx.Timeout(30.0),
+        trust_env=False,
+    ) as client:
         response = await client.request(
             method,
-            f"{API_BASE_URL}/{endpoint}",
-            timeout=30.0,
+            endpoint.lstrip("/"),
             **kwargs
         )
         response.raise_for_status()
@@ -407,9 +420,14 @@ Always use async/await for network requests and I/O operations:
 
 ```python
 # Good: Async network request
+from urllib.parse import quote
+
+
 async def fetch_data(resource_id: str) -> dict:
-    async with httpx.AsyncClient() as client:
-        response = await client.get(f"{API_URL}/resource/{resource_id}")
+    async with httpx.AsyncClient(
+        base_url=API_URL, follow_redirects=False, trust_env=False
+    ) as client:
+        response = await client.get(f"resource/{quote(resource_id, safe='')}")
         response.raise_for_status()
         return response.json()
 
@@ -506,11 +524,17 @@ class ResponseFormat(str, Enum):
 
 
 async def _make_api_request(endpoint: str, method: str = "GET", **kwargs) -> dict:
-    async with httpx.AsyncClient() as client:
+    if endpoint.startswith(("http://", "https://", "//")):
+        raise ValueError("endpoint must be a relative API path")
+    async with httpx.AsyncClient(
+        base_url=API_BASE_URL,
+        follow_redirects=False,
+        timeout=httpx.Timeout(30.0),
+        trust_env=False,
+    ) as client:
         response = await client.request(
             method,
-            f"{API_BASE_URL}/{endpoint}",
-            timeout=30.0,
+            endpoint.lstrip("/"),
             **kwargs
         )
         response.raise_for_status()
@@ -528,7 +552,7 @@ def _handle_api_error(e: Exception) -> str:
         return f"Error: API request failed with status {e.response.status_code}"
     elif isinstance(e, httpx.TimeoutException):
         return "Error: Request timed out. Please try again."
-    return f"Error: Unexpected error occurred: {type(e).__name__}"
+    return "Error: Unexpected upstream service failure."
 
 
 @mcp.tool(
@@ -614,8 +638,8 @@ async def advanced_search(query: str, ctx: Context) -> str:
     # Report progress for long operations
     await ctx.report_progress(0.25, "Starting search...")
 
-    # Log information for debugging
-    await ctx.log_info("Processing query", {"query": query, "timestamp": datetime.now()})
+    # Log allowlisted metadata, not caller input, request/response bodies, or PII.
+    await ctx.log_info("Processing request", {"operation": "search", "timestamp": datetime.now()})
 
     # Perform search
     results = await search_api(query)
@@ -793,6 +817,8 @@ Your implementation MUST prioritize composability and code reuse:
 5. **Error Handling**: Use specific exception types (httpx.HTTPStatusError, not generic Exception)
 6. **Async Context Managers**: Use `async with` for resources that need cleanup
 7. **Constants**: Define module-level constants in UPPER_CASE
+8. **Outbound Requests**: Use fixed approved origins; never pass a tool argument directly to an HTTP client
+9. **Safe Logs and Errors**: Log allowlisted metadata only and never expose raw upstream bodies, headers, URLs, or exception strings
 
 ## Quality Checklist
 
@@ -854,3 +880,8 @@ Before finalizing your Python MCP server implementation, ensure:
 - [ ] All imports resolve correctly
 - [ ] Sample tool calls work as expected
 - [ ] Error scenarios handled gracefully
+- [ ] Caller-controlled absolute URLs, prohibited schemes/ports, internal and metadata addresses, and hostname-confusion cases are rejected
+- [ ] Redirects are disabled or every hop is revalidated and credentials are stripped across origins
+- [ ] DNS rebinding is tested with mocked resolver and transport behavior; validation is bound to the connection
+- [ ] Seeded PII, credentials, upstream bodies, query strings, and stack traces appear in neither client errors nor captured logs
+- [ ] Authentication and authorization denial paths are tested for each tool
