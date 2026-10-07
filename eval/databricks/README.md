@@ -37,6 +37,37 @@ The only identity that reliably reaches the app from an offline eval is a
 **service principal using OAuth machine-to-machine (M2M)**. `eval_auth.py`
 injects that credential into the (unmodified) generated agent.
 
+### Authentication flow
+
+```mermaid
+flowchart LR
+    subgraph Online["Generated agent: online request path"]
+        U["Signed-in user"] -->|"HTTP request"| G["Databricks-hosted agent"]
+        G -->|"reads x-forwarded-access-token"| O["OBO workspace client"]
+        O -->|"user token"| A1["OAuth-gated MCP app"]
+    end
+
+    subgraph OfflineFail["Generated agent: offline notebook path"]
+        N1["MLflow eval notebook"] -->|"in-process invoke()"| I1["Generated agent"]
+        I1 -. "no HTTP request" .-> H["No forwarded user token"]
+        H -. "cannot authenticate" .-> A2["OAuth-gated MCP app"]
+    end
+
+    subgraph OfflineWork["Eval kit: offline M2M path"]
+        N2["MLflow eval notebook"] -->|"loads secret scope credentials"| S["Eval service principal"]
+        S -->|"OAuth M2M token"| I2["Patched workspace client"]
+        I2 -->|"CAN_USE grant"| A3["OAuth-gated MCP app"]
+    end
+```
+
+The generated OBO path works when the agent receives a real HTTP request from a
+signed-in user. An offline eval instead calls the exported agent directly inside
+the notebook process, so there is no `x-forwarded-access-token` to propagate.
+The eval service principal supplies its own non-user identity, obtains an OAuth
+M2M token, and is explicitly granted `workspace-access` plus `CAN_USE` on the MCP
+app. It authenticates the notebook-to-app hop; it does not replace the model
+endpoint or the MLflow judges.
+
 ---
 
 ## Step 1 — Deploy your MCP server
