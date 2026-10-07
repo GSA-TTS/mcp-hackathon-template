@@ -87,6 +87,7 @@ Each tool lives in its own file under `src/example_server/tools/` and exposes a 
 
 ```python
 from typing import Annotated
+from urllib.parse import quote
 from fastmcp import FastMCP
 
 from example_server.utils import fetch_json
@@ -106,7 +107,8 @@ def register(mcp: FastMCP) -> None:
     async def get_thing(thing_id: Annotated[str, "The ID to fetch."]) -> dict:
         """One-line summary. Document the data source, its update cadence,
         and the return shape here — the model reads this docstring."""
-        return await fetch_json(f"https://api.example.gov/things/{thing_id}")
+        safe_id = quote(thing_id, safe="")
+        return await fetch_json(f"things/{safe_id}")
 ```
 
 **Step 2 — wire it up in `tools/__init__.py`:**
@@ -142,6 +144,9 @@ Before publishing your server, rename `example_server` to your service (e.g. `ce
 - **Expose pagination.** Use `PaginationParams` / `paginate()` from `utils.py`, and return `has_more` / `next_offset`.
 - **Use explicit timeouts.** `utils.fetch_json` defaults to 30s.
 - **Actionable errors.** Return an error dict with a `hint`, not a raw stack trace.
+- **Constrain outbound requests.** Keep API origins in operator-controlled code or configuration, pass only validated relative paths to `fetch_json`, and encode path segments. Never pass a tool-supplied URL directly to an HTTP client.
+- **Treat redirects and DNS as security boundaries.** Redirects are disabled by default. A server that must fetch caller-supplied URLs needs connection-time IP validation on every hop plus network egress controls; a one-time DNS check is not sufficient.
+- **Keep sensitive data out of errors and logs.** Do not expose or log upstream bodies, headers, full URLs, query strings, credentials, stack traces, SSNs, dates of birth, or addresses.
 
 ---
 

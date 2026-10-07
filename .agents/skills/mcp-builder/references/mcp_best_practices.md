@@ -166,24 +166,66 @@ Example pagination response:
 ### Input Validation
 
 - Sanitize file paths to prevent directory traversal
-- Validate URLs and external identifiers
+- Avoid caller-supplied URLs. Prefer fixed API origins plus validated identifiers or relative paths.
+- Validate URLs and external identifiers with allowlists; syntax validation alone does not prevent SSRF.
 - Check parameter sizes and ranges
 - Prevent command injection in system calls
 - Use schema validation (Pydantic/Zod) for all inputs
 
 ### Error Handling
 
-- Don't expose internal errors to clients
-- Log security-relevant errors server-side
+- Don't expose upstream bodies, headers, full URLs, stack traces, or raw exception messages to clients
+- Log security-relevant errors using structured, allowlisted metadata only
 - Provide helpful but not revealing error messages
 - Clean up resources after errors
 
-### DNS Rebinding Protection
+Never log request or response bodies by default. Redact secrets, tokens, cookies,
+authorization headers, query strings, names, SSNs, dates of birth, addresses, and
+other classified fields before they reach a logger. Routine validation failures
+can contain sensitive upstream data and require the same treatment as exceptional
+failures. Define log access and retention controls for systems processing PII.
+
+### Outbound SSRF Prevention
+
+MCP tool arguments and content selected by agents are attacker-controlled input.
+Do not trust them because they came from an authenticated host, orchestrator, or
+internal agent.
+
+Use this default-deny policy for every outbound request:
+
+1. Prefer a fixed, operator-configured origin and accept only typed resource IDs or relative paths from tools.
+2. If URLs are required, allow only `https`, exact approved hostnames, explicit ports, and expected path prefixes. Reject userinfo and fragments. Do not use suffix matching such as `endsWith("example.gov")`.
+3. Normalize and parse with the platform URL library before validation. Reject malformed and ambiguous forms rather than trying to repair them.
+4. Resolve all IPv4 and IPv6 answers and reject the destination if any answer is loopback, private, link-local, multicast, unspecified, reserved, special-use, or a cloud metadata address. Account for IPv4-mapped IPv6 and alternate IP forms accepted by the runtime.
+5. Bind the connection to a validated address while preserving TLS certificate and SNI verification for the approved hostname, or use an approved egress proxy that performs this enforcement. A DNS lookup followed by a normal hostname request is vulnerable to rebinding.
+6. Disable redirects by default. If redirects are required, set a small hop limit and repeat scheme, hostname, port, DNS, and address validation immediately before every connection.
+7. Never forward authorization headers, cookies, client certificates, or other credentials across origins.
+8. Disable environment-derived proxies unless deployment explicitly approves and configures them.
+9. Set connection/read timeouts and response-size limits. Restrict methods and content types to those the tool needs.
+10. Enforce the same destination allowlist with network egress controls. Application checks are not the sole security boundary.
+
+Do not implement SSRF protection as a single pre-request `is_private` check. DNS
+rebinding exploits the gap between that check and the HTTP client's own resolution.
+Fail closed when resolution, normalization, redirect handling, or address
+classification is ambiguous.
+
+### Agent and Content Trust
+
+- Treat documents, API responses, resource content, and MCP/A2A messages as untrusted data, not executable instructions.
+- Validate messages against an expected schema before relaying them to another agent.
+- Keep credentials scoped per service or agent and grant only the actions each tool requires.
+- Enforce authentication and authorization at each tool invocation. Network location and MCP annotations are not access controls.
+- Apply content-ingestion controls before external text enters a model context, while recognizing that prompt-injection detection is defense in depth rather than a complete boundary.
+
+### Inbound DNS Rebinding Protection
 
 For streamable HTTP servers running locally:
 - Enable DNS rebinding protection
 - Validate the `Origin` header on all incoming connections
 - Bind to `127.0.0.1` rather than `0.0.0.0`
+
+This protects the inbound MCP transport. It does not address outbound SSRF; apply
+the outbound controls above separately.
 
 ---
 
@@ -235,6 +277,8 @@ Comprehensive testing should cover:
 - **Functional testing**: Verify correct execution with valid/invalid inputs
 - **Integration testing**: Test interaction with external systems
 - **Security testing**: Validate auth, input sanitization, rate limiting
+- **Outbound security testing**: Validate destination allowlists, prohibited IPv4/IPv6 ranges, metadata endpoints, DNS rebinding, redirects, credential stripping, proxy behavior, timeouts, and response limits
+- **Data-leakage testing**: Seed sensitive values in upstream failures and verify they appear in neither client errors nor logs
 - **Performance testing**: Check behavior under load, timeouts
 - **Error handling**: Ensure proper error reporting and cleanup
 

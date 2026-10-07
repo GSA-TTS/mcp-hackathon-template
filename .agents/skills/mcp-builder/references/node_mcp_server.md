@@ -429,13 +429,19 @@ function handleApiError(error: unknown): string {
       return "Error: Request timed out. Please try again.";
     }
   }
-  return `Error: Unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`;
+  return "Error: Unexpected upstream service failure.";
 }
 ```
 
 ## Shared Utilities
 
 Extract common functionality into reusable functions:
+
+Outbound helpers must use an exact operator-configured origin and accept only
+relative paths or typed identifiers. Disable redirects and environment proxies.
+If caller-supplied URLs are an explicit requirement, apply the connection-time DNS
+and redirect policy in `mcp_best_practices.md`; resolving once and then asking the
+HTTP client to resolve the hostname again remains vulnerable to DNS rebinding.
 
 ```typescript
 // Shared API request function
@@ -445,13 +451,19 @@ async function makeApiRequest<T>(
   data?: any,
   params?: any
 ): Promise<T> {
+  if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(endpoint)) {
+    throw new Error("endpoint must be a relative API path");
+  }
   try {
     const response = await axios({
       method,
-      url: `${API_BASE_URL}/${endpoint}`,
+      baseURL: API_BASE_URL,
+      url: endpoint.replace(/^\/+/, ""),
       data,
       params,
       timeout: 30000,
+      maxRedirects: 0,
+      proxy: false,
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json"
@@ -471,13 +483,20 @@ Always use async/await for network requests and I/O operations:
 ```typescript
 // Good: Async network request
 async function fetchData(resourceId: string): Promise<ResourceData> {
-  const response = await axios.get(`${API_URL}/resource/${resourceId}`);
+  const id = encodeURIComponent(resourceId);
+  const response = await axios.get(`${API_URL}/resource/${id}`, {
+    maxRedirects: 0,
+    proxy: false,
+  });
   return response.data;
 }
 
 // Bad: Promise chains
 function fetchData(resourceId: string): Promise<ResourceData> {
-  return axios.get(`${API_URL}/resource/${resourceId}`)
+  return axios.get(`${API_URL}/resource/${encodeURIComponent(resourceId)}`, {
+    maxRedirects: 0,
+    proxy: false,
+  })
     .then(response => response.data);  // Harder to read and maintain
 }
 ```
@@ -638,13 +657,19 @@ async function makeApiRequest<T>(
   data?: any,
   params?: any
 ): Promise<T> {
+  if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(endpoint)) {
+    throw new Error("endpoint must be a relative API path");
+  }
   try {
     const response = await axios({
       method,
-      url: `${API_BASE_URL}/${endpoint}`,
+      baseURL: API_BASE_URL,
+      url: endpoint.replace(/^\/+/, ""),
       data,
       params,
       timeout: 30000,
+      maxRedirects: 0,
+      proxy: false,
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json"
@@ -673,7 +698,7 @@ function handleApiError(error: unknown): string {
       return "Error: Request timed out. Please try again.";
     }
   }
-  return `Error: Unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`;
+  return "Error: Unexpected upstream service failure.";
 }
 
 // Create MCP server instance
@@ -933,6 +958,9 @@ Before finalizing your Node/TypeScript MCP server implementation, ensure:
 - [ ] All tools have comprehensive descriptions with explicit input/output types
 - [ ] Descriptions include return value examples and complete schema documentation
 - [ ] Error messages are clear, actionable, and educational
+- [ ] Outbound requests use exact approved origins and never pass tool arguments directly to an HTTP client as URLs
+- [ ] Redirects and environment proxies are disabled unless explicitly required and secured
+- [ ] Client errors and structured logs exclude upstream bodies, headers, full URLs, raw exceptions, credentials, and PII
 
 ### TypeScript Quality
 - [ ] TypeScript interfaces are defined for all data structures
@@ -968,3 +996,7 @@ Before finalizing your Node/TypeScript MCP server implementation, ensure:
 - [ ] Server runs: `node dist/index.js --help`
 - [ ] All imports resolve correctly
 - [ ] Sample tool calls work as expected
+- [ ] Internal, metadata, loopback, link-local, reserved, IPv4-mapped IPv6, alternate-IP, prohibited-scheme/port, userinfo, and hostname-confusion inputs are rejected
+- [ ] Redirect hops and DNS rebinding are tested with deterministic mocked resolver/transport behavior
+- [ ] Credentials cannot cross origins and seeded sensitive values appear in neither client errors nor captured logs
+- [ ] Authentication and authorization denial paths are tested for every tool
