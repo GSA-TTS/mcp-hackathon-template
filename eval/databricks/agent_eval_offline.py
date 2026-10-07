@@ -31,6 +31,7 @@
 #   - Grant it workspace-access and "Can Use" on your MCP app.
 #   - Store its credentials in a Databricks secret scope.
 # =============================================================================
+# ruff: noqa: E402  # Notebook-editable config intentionally precedes imports.
 
 import os
 
@@ -59,6 +60,7 @@ import atexit
 import threading
 
 import mlflow
+from agents import set_default_openai_api
 from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.genai import evaluate
 from mlflow.genai.scorers import (
@@ -92,6 +94,10 @@ from agent_server.eval_auth import patch_agent_with_service_principal  # noqa: E
 # config, so you never have to edit agent.py.
 agent.MODEL = MODEL
 agent.MCP_SERVERS = [("mcp-server", MCP_SERVER_URL)]
+
+# Generated agents currently default to /v1/chat/completions. Databricks OpenAI
+# reasoning endpoints require /v1/responses when the agent supplies MCP tools.
+set_default_openai_api("responses")
 
 # Monkeypatch the agent's get_mcp_user_workspace_client() to return an
 # authenticated service-principal client. This is what makes the MCP calls
@@ -129,9 +135,7 @@ mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=EXPERIMENT
 # dict; `expected_facts` must be a LIST. Add more rows to broaden coverage.
 eval_dataset = [
     {
-        "inputs": {
-            "request": "<a question your agent should answer using its tools>"
-        },
+        "inputs": {"request": "<a question your agent should answer using its tools>"},
         "expectations": {
             "expected_facts": ["<a fact the correct answer must contain>"],
         },
@@ -155,7 +159,9 @@ def _loop_runner():
     _LOOP.run_forever()
 
 
-_LOOP_THREAD = threading.Thread(target=_loop_runner, daemon=True, name="eval-async-loop")
+_LOOP_THREAD = threading.Thread(
+    target=_loop_runner, daemon=True, name="eval-async-loop"
+)
 _LOOP_THREAD.start()
 atexit.register(lambda: _LOOP.call_soon_threadsafe(_LOOP.stop))
 

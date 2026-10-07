@@ -121,7 +121,9 @@ Open a notebook in the exported agent folder (so `agent_server/` is importable).
 
 The generated agent imports `agents` (openai-agents) and `databricks_openai`,
 which are not on the default Databricks runtime. `%restart_python` must run so
-the freshly installed packages become importable.
+the freshly installed packages become importable. The eval also overrides the
+generated agent's `/v1/chat/completions` default with `/v1/responses`. OpenAI
+reasoning endpoints require the Responses API when MCP function tools are used.
 
 **Cell 2 — the eval.** Paste the contents of `agent_eval_offline.py`, edit the
 `CONFIG` block at the top, and run:
@@ -163,6 +165,7 @@ metrics:
 | Agent answers with "I don't have access to tools" and logs `Failed to connect MCP server` | The MCP connection failed silently — the SP isn't reaching the app. Confirm the SP has `CAN_USE` on the app (step 4.3) and the secret scope holds valid creds. |
 | `403` on tool calls | SP lacks `CAN_USE` on the app, or lacks `workspace-access`. Re-run `setup-eval-sp.sh` (or grant in the UI). |
 | `ENDPOINT_NOT_FOUND` (404) on the model | `MODEL` isn't a valid serving-endpoint name. List them: `[e.name for e in WorkspaceClient().serving_endpoints.list()]`. |
+| `Function tools with reasoning_effort are not supported` (400) | The OpenAI reasoning endpoint received tools through `/v1/chat/completions`. Use the current eval script, which switches the generated agent to `/v1/responses` after import. |
 | `'NoneType' object has no attribute 'info'` then all scorers fail | Trace destination not set. The script sets it via `MlflowExperimentLocation`; make sure `EXPERIMENT_ID` is one you can write to. |
 | `bound to a different event loop` / `Event loop is closed` | Async-loop plumbing. The script already handles this with a single persistent loop — don't add `nest_asyncio`. |
 | Eval times out / hammers the app | Uncomment the tuning env vars near the top of `agent_eval_offline.py` (`MLFLOW_GENAI_EVAL_MAX_WORKERS=1`, timeouts). |
