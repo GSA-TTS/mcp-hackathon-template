@@ -187,7 +187,9 @@ metrics:
   "expectations": {"expected_facts": ["..."]}}`. `expected_facts` must be a list
   and must live under `expectations` (a top-level key is ignored by the
   Correctness judge on MLflow 3.x).
-- **Scorers:** add/remove entries in the `evaluate(..., scorers=[...])` list.
+- **Scorers:** add, remove, or customize entries in `SCORERS` in the `CONFIG`
+  block. The template defaults to Safety, RelevanceToQuery, Correctness, and a
+  custom conciseness guideline.
 
 ## Troubleshooting
 

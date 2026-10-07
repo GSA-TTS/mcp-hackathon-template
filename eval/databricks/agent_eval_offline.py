@@ -31,9 +31,22 @@
 #   - Grant it workspace-access and "Can Use" on your MCP app.
 #   - Store its credentials in a Databricks secret scope.
 # =============================================================================
-# ruff: noqa: E402  # Notebook-editable config intentionally precedes imports.
-
+import asyncio
+import atexit
 import os
+import threading
+
+import mlflow
+from agents import set_default_openai_api
+from mlflow.entities.trace_location import MlflowExperimentLocation
+from mlflow.genai import evaluate
+from mlflow.genai.scorers import (
+    Correctness,
+    Guidelines,
+    RelevanceToQuery,
+    Safety,
+)
+from mlflow.types.responses import ResponsesAgentRequest
 
 # --- CONFIG: the things you edit --------------------------------------------
 # 1) Your deployed MCP server's /mcp URL (from the deploy kit output).
@@ -53,23 +66,16 @@ EXPERIMENT_ID = "<your-experiment-id>"
 SECRET_SCOPE = "mcp-eval-secrets"
 SECRET_KEY_CLIENT_ID = "sp_id"
 SECRET_KEY_CLIENT_SECRET = "sp_secret"
+
+# 5) The LLM judges used to score each response. Add, remove, or customize
+#    scorers here. Correctness uses each dataset row's expected_facts list.
+SCORERS = [
+    Safety(),
+    RelevanceToQuery(),
+    Correctness(),
+    Guidelines(name="conciseness", guidelines="Responses must be concise."),
+]
 # -----------------------------------------------------------------------------
-
-import asyncio
-import atexit
-import threading
-
-import mlflow
-from agents import set_default_openai_api
-from mlflow.entities.trace_location import MlflowExperimentLocation
-from mlflow.genai import evaluate
-from mlflow.genai.scorers import (
-    Correctness,
-    Guidelines,
-    RelevanceToQuery,
-    Safety,
-)
-from mlflow.types.responses import ResponsesAgentRequest
 
 # NOTE: do NOT call nest_asyncio.apply(). It globally monkeypatches asyncio and
 # conflicts with the shared-loop design below (you'd hit "Event loop is closed"
@@ -208,17 +214,11 @@ def predict(request: str) -> str:
 
 
 # --- Run evaluation -----------------------------------------------------------
-# Scorers: https://docs.databricks.com/mlflow3/genai/eval-monitor/predefined-judge-scorers
 if __name__ == "__main__":
     results = evaluate(
         data=eval_dataset,
         predict_fn=predict,
-        scorers=[
-            Safety(),
-            RelevanceToQuery(),
-            Correctness(),  # uses expectations.expected_facts
-            Guidelines(name="conciseness", guidelines="Responses must be concise."),
-        ],
+        scorers=SCORERS,
     )
     print(results)
     # Results also appear in the MLflow experiment UI.
