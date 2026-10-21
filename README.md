@@ -28,6 +28,7 @@ mcp-hackathon-template/
 ├── server.json                # MCP registry metadata
 ├── .env.example               # Copy to .env for local dev
 ├── .github/workflows/ci.yml   # Lint + test on push/PR
+├── docs/                      # Vendor-contributed reference materials
 ├── src/
 │   └── example_server/        # ← rename to your service
 │       ├── app.py             # Thin entry point: builds FastMCP, picks transport
@@ -158,6 +159,22 @@ Local development uses stdio. To share your server with an agent platform, deplo
 - **Databricks Apps** — [deploy/databricks/](deploy/databricks/).
 
 Both read the same server code; `app.py` automatically serves HTTP when the platform injects a port.
+
+---
+
+## Partner reference materials
+
+The [`docs/`](docs/) directory contains educational reference materials that
+IBM and Databricks may contribute for hackathon participants. Vendor-contributed
+materials do not represent the views, positions, or policies of GSA or the
+United States Government.
+
+GSA does not endorse any commercial product, service, or enterprise referenced
+in these materials. Reference to a commercial product, service, or enterprise
+does not constitute or imply endorsement, recommendation, or favoring by GSA or
+the United States Government. These materials are provided for educational
+purposes only. See [`docs/README.md`](docs/README.md) for the complete notice and
+contribution guidance.
 
 ---
 

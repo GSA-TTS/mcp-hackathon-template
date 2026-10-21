@@ -40,3 +40,7 @@ htmlcov/
 .zed/
 *.swp
 
+# Ignore reference files for Databricks agnet 
+eval/databricks/agent_server/agent.py
+eval/databricks/agent_server/utils.py 
+
